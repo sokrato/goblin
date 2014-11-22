@@ -17,6 +17,7 @@ var (
     settings g.Settings = g.Settings{
         g.CfgKeyRoutes: map[string]interface{}{
             `^echo/(?P<msg>.+)$`: g.HF(demo.Echo),
+            `^files/.*$`: g.FileServer("/home/xu/", "/files/"),
             `^book/(?P<bookid>\d+)/`: map[string]interface{} {
                 "^read$": g.HF(demo.ReadBook),
                 `^buy/(?P<price>\d+)$`: g.HF(demo.BuyBook),
@@ -48,15 +49,14 @@ func (d *Demo) ReadBook(ctx *g.Context) {
 func (d *Demo) ResponseMDW(ctx *g.Context) {
     startTime := ctx.Extra["startTime"].(time.Time)
     duration := time.Now().Sub(startTime)
-    log.Println(ctx.Req.URL, " cost ", duration)
+    log.Println(ctx.Res.Status(), ctx.Req.Method, ctx.Req.URL, duration)
 }
 
 func (d *Demo) RequestMDW(ctx *g.Context) {
+    ctx.Extra["startTime"] = time.Now()
     if ctx.Params["msg"] == "500" {
         ctx.Res.Error("you asked for error", 500)
-        return
     }
-    ctx.Extra["startTime"] = time.Now()
 }
 
 func (d *Demo) Echo(ctx *g.Context) {
@@ -66,11 +66,13 @@ func (d *Demo) Echo(ctx *g.Context) {
 
 func (d *Demo) HandleEvent(evt string, args...interface{}) {
     req := args[0].(*http.Request)
-    log.Println(req.Method, req.URL)
+    log.Println("New Request: ", req.Method, req.URL)
 }
 
 func (d *Demo) Handle404(ctx *g.Context) {
-    ctx.Res.WriteString(ctx.Req.RequestURI + " dose not exist")
+    // ctx.Res.Error("not found**", http.StatusNotFound)
+    ctx.Res.WriteHeader(http.StatusNotFound)
+    ctx.Res.WriteString(ctx.Req.RequestURI + " dose not exist\n")
 }
 
 func main() {

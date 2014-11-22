@@ -2,125 +2,97 @@ package goblin
 
 import (
     "net/http"
-    "bytes"
     "time"
     "io"
-    "errors"
+    "encoding/json"
 )
 
-
-var (
-    ErrResetAfterFlush = errors.New("cannot reset response after content flushed")
-)
-
-type ResponseWriter struct {
-    Buffer *bytes.Buffer
-    isStreaming bool
-    flushed bool
-    written bool
+type Response struct {
+    status int
+    headerSent bool
     w http.ResponseWriter
     req *http.Request
 }
 
-func NewResponseWriter(w http.ResponseWriter, req *http.Request) *ResponseWriter {
-    return &ResponseWriter{
-        Buffer: new(bytes.Buffer),
-        isStreaming: false,
-        flushed: false,
-        written: false,
+func NewResponse(w http.ResponseWriter, req *http.Request) *Response {
+    return &Response{
+        status: http.StatusOK,
         w: w,
         req: req,
     }
 }
 
-func (res *ResponseWriter) Written() bool {
-    return res.written || res.flushed
+// get status code of current response
+func (res *Response) Status() int {
+    return res.status
 }
 
-func (res *ResponseWriter) Flushed() bool {
-    return res.flushed
-}
-
-func (res *ResponseWriter) Flush() (int, error) {
-    n, e := res.w.Write(res.Buffer.Bytes())
-    res.markFlushed()
-    res.Buffer.Reset()
-    return n, e
-}
-
-func (res *ResponseWriter) markFlushed() {
-    res.flushed = true
-}
-
-func (res *ResponseWriter) Header() http.Header {
+func (res *Response) Header() http.Header {
     return res.w.Header()
 }
 
-func (res *ResponseWriter) SetStreaming() {
-    res.isStreaming = true
-    if res.Buffer.Len() > 0 {
-        res.Flush()
-    }
+func (res *Response) HeaderSent() bool {
+    return res.headerSent
 }
 
-func (res *ResponseWriter) IsStreaming() bool {
-    return res.isStreaming
+func (res *Response) markHeaderSent() {
+    res.headerSent = true
 }
 
-func (res *ResponseWriter) Write(bs []byte) (int, error) {
-    if res.IsStreaming() {
-        res.markFlushed()
-        return res.w.Write(bs)
-    }
-    res.written = true
-    return res.Buffer.Write(bs)
+func (res *Response) Write(bs []byte) (int, error) {
+    res.markHeaderSent()
+    return res.w.Write(bs)
 }
 
-func (res *ResponseWriter) WriteString(str string) (int, error) {
+func (res *Response) WriteString(str string) (int, error) {
     return res.Write([]byte(str))
 }
 
-func (res *ResponseWriter) Reset() error {
-    if res.Flushed() {
-        return ErrResetAfterFlush
+// auto set content-type
+func (res *Response) WriteJSON(v interface{}) (int, error) {
+    data, err := json.Marshal(v)
+    if err != nil {
+        return 0, err
     }
-    res.Buffer.Reset()
-    res.written = false
-    return nil
+    return res.Write(data)
 }
 
-func (res *ResponseWriter) WriteHeader(status int) {
-    res.markFlushed()
+// convinience wrappers for http.ResponseWriter
+
+func (res *Response) WriteHeader(status int) {
     res.w.WriteHeader(status)
+    res.status = status
+    res.markHeaderSent()
 }
 
-// convinience func
-
-func (res *ResponseWriter) Error(err string, code int) {
-    res.markFlushed()
+func (res *Response) Error(err string, code int) {
     http.Error(res.w, err, code)
+    res.status = code
+    res.markHeaderSent()
 }
 
-func (res *ResponseWriter) NotFound() {
-    res.markFlushed()
+func (res *Response) NotFound() {
     http.NotFound(res.w, res.req)
+    res.status = http.StatusNotFound
+    res.markHeaderSent()
 }
 
-func (res *ResponseWriter) Redirect(urlStr string, code int) {
-    res.markFlushed()
+func (res *Response) Redirect(urlStr string, code int) {
     http.Redirect(res.w, res.req, urlStr, code)
+    res.status = code
+    res.markHeaderSent()
 }
 
-func (res *ResponseWriter) ServeContent(name string, modtime time.Time, content io.ReadSeeker) {
-    res.markFlushed()
+func (res *Response) ServeContent(name string, modtime time.Time, content io.ReadSeeker) {
     http.ServeContent(res.w, res.req, name, modtime, content)
+    res.markHeaderSent()
 }
 
-func (res *ResponseWriter) ServeFile(name string) {
-    res.markFlushed()
+func (res *Response) ServeFile(name string) {
     http.ServeFile(res.w, res.req, name)
+    res.markHeaderSent()
 }
 
-func (res *ResponseWriter) SetCookie(cookie *http.Cookie) {
+func (res *Response) SetCookie(cookie *http.Cookie) {
     http.SetCookie(res.w, cookie)
 }

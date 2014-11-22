@@ -14,8 +14,8 @@ const (
 type App struct {
     EventEmitter
     Router *Router
-    Handler404 Handler
-    Handler500 Handler
+    handler404 Handler
+    handler500 Handler
     Settings Settings
     requestMiddlewares []Handler
     responseMiddlewares []Handler
@@ -24,19 +24,16 @@ type App struct {
 func (app *App) catchInternalError(ctx *Context) {
     defer func() {
         if err := recover(); err != nil {
-            ctx.Res.Reset()
             ctx.Err = err
             handle500(ctx)
         }
-        ctx.Res.Flush()
     }()
 
     if err := recover(); err != nil {
         ctx.Err = err
         app.Emit(Evt500, ctx)
-        ctx.Res.Reset()
-        if app.Handler500 != nil {
-            app.Handler500.Handle(ctx)
+        if app.handler500 != nil {
+            app.handler500.Handle(ctx)
         } else {
             handle500(ctx)
         }
@@ -46,7 +43,7 @@ func (app *App) catchInternalError(ctx *Context) {
 func (app *App) createContext(w http.ResponseWriter, req *http.Request) *Context {
     Req := &Request{req}
     return &Context{
-        Res: NewResponseWriter(w, req),
+        Res: NewResponse(w, req),
         Req: Req,
         App: app,
         Params: Params{},
@@ -54,37 +51,29 @@ func (app *App) createContext(w http.ResponseWriter, req *http.Request) *Context
     }
 }
 
-func (app *App) handle404(ctx *Context) {
+func (app *App) Handle404(ctx *Context) {
     app.Emit(Evt404, ctx)
-    if app.Handler404 != nil {
-        app.Handler404.Handle(ctx)
+    if app.handler404 != nil {
+        app.handler404.Handle(ctx)
     } else {
         handle404(ctx)
     }
-    ctx.Res.Flush()
     return
 }
 
 func (app *App) applyRequestMiddlewares(ctx *Context) {
     for _, mw := range app.requestMiddlewares {
-        if mw.Handle(ctx); ctx.Res.Written() {
-            break
-        }
+        mw.Handle(ctx)
     }
 }
 
 func (app *App) applyResponseMiddlewares(ctx *Context) {
-    if ctx.Res.Flushed() {
-        return
-    }
     for _, mv := range app.responseMiddlewares {
-        if mv.Handle(ctx); ctx.Res.Flushed() {
-            break
-        }
+        mv.Handle(ctx)
     }
-    ctx.Res.Flush()
 }
 
+// Beware that response may have been flush in middlewares.
 func (app *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
     ctx := app.createContext(w, req)
     defer app.catchInternalError(ctx)
@@ -92,14 +81,15 @@ func (app *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
     view := app.Router.Match(req.URL.Path[1: ], ctx.Params)
     if view == nil { // 404
-        app.handle404(ctx)
-        return
+        app.Handle404(ctx)
     }
 
     app.applyRequestMiddlewares(ctx)
-    if !ctx.Res.Written() {
+
+    if view != nil && !ctx.Res.HeaderSent() {
         view.Handle(ctx)
     }
+
     app.applyResponseMiddlewares(ctx)
     app.Emit(EvtRequestFinished, ctx)
 }
@@ -109,8 +99,8 @@ func NewApp(settings Settings) *App {
     return &App{
         EventEmitter: make(EventEmitter, 0),
         Router: settings.Router(),
-        Handler404: settings.Handler404(),
-        Handler500: settings.Handler500(),
+        handler404: settings.Handler404(),
+        handler500: settings.Handler500(),
         Settings: settings,
         requestMiddlewares: settings.RequestMiddlewares(),
         responseMiddlewares: settings.ResponseMiddlewares(),

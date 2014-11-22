@@ -9,11 +9,11 @@ import (
 )
 
 var (
-    ErrParamsNotSet = errors.New("params not set")
+    ErrParamNotSet = errors.New("param not set")
 )
 
 type Context struct {
-    Res *ResponseWriter
+    Res *Response
     Req *Request
     App *App // the main app
     Params Params // request params
@@ -21,14 +21,16 @@ type Context struct {
     Extra Extra
 }
 
+// extra data bound to a Context instance
 type Extra map[string]interface{}
 
+// named groups in url pattern
 type Params map[string]string
 
 func (p Params) Int(key string) (int, error) {
     val, ok := p[key]
     if !ok {
-        return 0, ErrParamsNotSet
+        return 0, ErrParamNotSet
     }
     return strconv.Atoi(val)
 }
@@ -56,4 +58,12 @@ func handle404(ctx *Context) {
 func handle500(ctx *Context) {
     ctx.Res.Error(http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
     fmt.Fprintln(os.Stderr, ctx.Err)
+}
+
+func FileServer(root, prefix string) Handler {
+    fs := http.Dir(root)
+    httpHandler := http.StripPrefix(prefix, http.FileServer(fs))
+    return HF(func(ctx *Context) {
+        httpHandler.ServeHTTP(ctx.Res.w, ctx.Req.Request)
+    })
 }
