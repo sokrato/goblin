@@ -16,7 +16,7 @@ func TestNewRouterWithNilOrInvalidHandler(t *testing.T) {
     }
     // route config with nested nil Handler
     router, err = NewRouter(map[string]interface{}{
-        "^non-nil$": HandlerFromFunc(func(ctx *Context) {
+        "^non-nil$": HF(func(ctx *Context) {
             flag = true
         }),
         "^prefx/": map[string]interface{} {
@@ -38,7 +38,7 @@ func TestNewRouterWithNilOrInvalidHandler(t *testing.T) {
 
 func TestRouterMatch(t *testing.T) {
     handlerCalled := false
-    handler := HandlerFromFunc(func(ctx *Context) {
+    handler := HF(func(ctx *Context) {
         handlerCalled = true
     })
     router, err := NewRouter(map[string]interface{}{

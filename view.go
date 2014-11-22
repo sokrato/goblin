@@ -45,7 +45,7 @@ func (sv SimpleHandler) Handle(ctx *Context) {
     sv.fn(ctx)
 }
 
-func HandlerFromFunc(fn func(*Context)) Handler {
+func HF(fn func(*Context)) Handler {
     return SimpleHandler{fn}
 }
 

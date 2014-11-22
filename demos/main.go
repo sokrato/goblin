@@ -16,20 +16,33 @@ var (
 
     settings g.Settings = g.Settings{
         g.CfgKeyRoutes: map[string]interface{}{
-            `echo/(?P<msg>.+)$`: g.HandlerFromFunc(demo.Echo),
+            `^echo/(?P<msg>.+)$`: g.HF(demo.Echo),
+            `^book/(?P<bookid>\d+)/`: map[string]interface{} {
+                "^read$": g.HF(demo.ReadBook),
+                `^buy/(?P<price>\d+)$`: g.HF(demo.BuyBook),
+            },
         },
-        g.CfgKeyHandler404: g.HandlerFromFunc(demo.Handle404),
+        g.CfgKeyHandler404: g.HF(demo.Handle404),
         g.CfgKeyRequestMiddlewares: []g.Handler{
-            g.HandlerFromFunc(demo.RequestMDW),
+            g.HF(demo.RequestMDW),
         },
         g.CfgKeyResponseMiddlewares: []g.Handler{
-            g.HandlerFromFunc(demo.ResponseMDW),
+            g.HF(demo.ResponseMDW),
         },
     }
 )
 
 type Demo struct {
     Name string
+}
+
+func (d *Demo) BuyBook(ctx *g.Context) {
+    res := ctx.Res
+    res.WriteString("buy book-" + ctx.Params["bookid"] + " with " + ctx.Params["price"])
+}
+
+func (d *Demo) ReadBook(ctx *g.Context) {
+    ctx.Res.WriteString("reading book-" + ctx.Params["bookid"])
 }
 
 func (d *Demo) ResponseMDW(ctx *g.Context) {
