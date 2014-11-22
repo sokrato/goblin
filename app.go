@@ -2,8 +2,13 @@ package goblin
 
 import (
     "net/http"
-    "errors"
-    "log"
+)
+
+const (
+    Evt404 = "404"
+    Evt500 = "500"
+    EvtRequestNew = "request.new"
+    EvtRequestFinished = "request.finished"
 )
 
 type App struct {
@@ -11,102 +16,105 @@ type App struct {
     Router *Router
     Handler404 Handler
     Handler500 Handler
+    Settings Settings
     requestMiddlewares []Handler
     responseMiddlewares []Handler
 }
 
-func (app *App) catchInternalError(res *ResponseWriter, req *http.Request) {
+func (app *App) catchInternalError(ctx *Context) {
     defer func() {
         if err := recover(); err != nil {
-            res.Body.Reset()
-            handle500(res, req)
+            ctx.Res.Reset()
+            ctx.Err = err
+            handle500(ctx)
         }
-        res.Flush()
+        ctx.Res.Flush()
     }()
 
     if err := recover(); err != nil {
-        app.Emit("500", res, req)
-        res.Body.Reset()
+        ctx.Err = err
+        app.Emit(Evt500, ctx)
+        ctx.Res.Reset()
         if app.Handler500 != nil {
-            app.Handler500.Handle(res, req)
+            app.Handler500.Handle(ctx)
         } else {
-            handle500(res, req)
+            handle500(ctx)
         }
     }
+}
+
+func (app *App) createContext(w http.ResponseWriter, req *http.Request) *Context {
+    Req := &Request{req}
+    return &Context{
+        Res: NewResponseWriter(w, req),
+        Req: Req,
+        App: app,
+        Params: Params{},
+        Extra: Extra{},
+    }
+}
+
+func (app *App) handle404(ctx *Context) {
+    app.Emit(Evt404, ctx)
+    if app.Handler404 != nil {
+        app.Handler404.Handle(ctx)
+    } else {
+        handle404(ctx)
+    }
+    ctx.Res.Flush()
+    return
+}
+
+func (app *App) applyRequestMiddlewares(ctx *Context) {
+    for _, mw := range app.requestMiddlewares {
+        if mw.Handle(ctx); ctx.Res.Written() {
+            break
+        }
+    }
+}
+
+func (app *App) applyResponseMiddlewares(ctx *Context) {
+    if ctx.Res.Flushed() {
+        return
+    }
+    for _, mv := range app.responseMiddlewares {
+        if mv.Handle(ctx); ctx.Res.Flushed() {
+            break
+        }
+    }
+    ctx.Res.Flush()
 }
 
 func (app *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-    view := app.Router.Find(req.URL.Path[1: ])
-    res := NewResponseWriter(w, req)
-    defer app.catchInternalError(res, req)
+    ctx := app.createContext(w, req)
+    defer app.catchInternalError(ctx)
+    app.Emit(EvtRequestNew, req)
 
-    if view == nil {
-        // 404
-        app.Emit("404", res, req)
-        if app.Handler404 != nil {
-            app.Handler404.Handle(res, req)
-        } else {
-            handle404(res, req)
-        }
-        res.Flush()
+    view := app.Router.Match(req.URL.Path[1: ], ctx.Params)
+    if view == nil { // 404
+        app.handle404(ctx)
         return
     }
-    // apply request middlewares
-    for _, mw := range app.requestMiddlewares {
-        if mw.Handle(res, req); res.Sent() {
-            break
-        }
+
+    app.applyRequestMiddlewares(ctx)
+    if !ctx.Res.Written() {
+        view.Handle(ctx)
     }
-    view.Handle(res, req)
-    // response middlewares
-    for _, mv := range app.responseMiddlewares {
-        if mv.Handle(res, req); res.Sent() {
-            break
-        }
-    }
-    log.Println(res.Sent())
-    if !res.Sent() {
-        res.Flush()
-    }
+    app.applyResponseMiddlewares(ctx)
+    app.Emit(EvtRequestFinished, ctx)
 }
 
-func NewApp(settings Settings) (*App, error) {
-    routeCfg, ok := settings["routes"]
-    if !ok {
-        return nil, errors.New("routes not found")
-    }
-    routes, ok := routeCfg.(map[string]interface{})
-    if !ok {
-        return nil, errors.New("invalid routes")
-    }
-    router, err := NewRouter(routes)
-    if err != nil {
-        return nil, err
-    }
-
-    var hdl404, hdl500 Handler
-    hdl404Cfg, ok := settings["handle404"]
-    if ok {
-        hdl404, ok = hdl404Cfg.(Handler)
-        if !ok {
-            return nil, errors.New("invalid 404 handler")
-        }
-    }
-    hdl500Cfg, ok := settings["handle500"]
-    if ok {
-        hdl500, ok = hdl500Cfg.(Handler)
-        if !ok {
-            return nil, errors.New("invalid 500 handler")
-        }
-    }
+// It will panic if settings is invalid.
+func NewApp(settings Settings) *App {
     return &App{
         EventEmitter: make(EventEmitter, 0),
-        Router: router,
-        Handler404: hdl404,
-        Handler500: hdl500,
-        requestMiddlewares: nil, //reqMiddlewares,
-        responseMiddlewares: nil, //resMiddlewares,
-    }, nil
+        Router: settings.Router(),
+        Handler404: settings.Handler404(),
+        Handler500: settings.Handler500(),
+        Settings: settings,
+        requestMiddlewares: settings.RequestMiddlewares(),
+        responseMiddlewares: settings.ResponseMiddlewares(),
+    }
 }
 
 func (app *App) ListenAndServe(addr string) error {

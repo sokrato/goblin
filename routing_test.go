@@ -2,21 +2,21 @@ package goblin
 
 import (
     "testing"
-    "net/http"
+    // "net/http"
 )
 
-func TestNewRouterWithNilOrInvalidView(t *testing.T) {
+func TestNewRouterWithNilOrInvalidHandler(t *testing.T) {
     flag := false
-    // route config with immediate nil view
+    // route config with immediate nil Handler
     router, err := NewRouter(map[string]interface{}{
         "^nil$": nil,
     })
     if router != nil || err == nil {
         t.FailNow()
     }
-    // route config with nested nil view
+    // route config with nested nil Handler
     router, err = NewRouter(map[string]interface{}{
-        "^non-nil$": HandlerFromFunc(func(res *ResponseWriter, req *http.Request) {
+        "^non-nil$": HandlerFromFunc(func(ctx *Context) {
             flag = true
         }),
         "^prefx/": map[string]interface{} {
@@ -26,7 +26,7 @@ func TestNewRouterWithNilOrInvalidView(t *testing.T) {
     if router != nil || err == nil {
         t.FailNow()
     }
-    // route config with invalid view
+    // route config with invalid Handler
     router, err = NewRouter(map[string]interface{}{
         "^int-view$": 123,
         "^string-view$": "view",
@@ -36,45 +36,48 @@ func TestNewRouterWithNilOrInvalidView(t *testing.T) {
     }
 }
 
-func TestRouterFind(t *testing.T) {
-    viewCalled := false
-    handler := HandlerFromFunc(func(res *ResponseWriter, req *http.Request) {
-        viewCalled = true
+func TestRouterMatch(t *testing.T) {
+    handlerCalled := false
+    handler := HandlerFromFunc(func(ctx *Context) {
+        handlerCalled = true
     })
     router, err := NewRouter(map[string]interface{}{
-        "^view1$": handler,
+        "^handler1$": handler,
         "^api/": map[string]interface{}{
             "^doc$": handler,
-            `^user/(\d+)$`: handler,
+            `^user/(?P<uid>\d+)$`: handler,
         },
     })
     if err != nil {
         t.FailNow()
     }
-    view := router.Find("view1")
-    if view == nil {
+    params := Params{}
+    handler = router.Match("handler1", params)
+    if handler == nil {
         t.FailNow()
     }
-    if view.Handle(nil, nil); !viewCalled {
+    if handler.Handle(nil); !handlerCalled {
         t.FailNow()
     }
-    if view = router.Find("aboutwhat"); view != nil {
+    if handler = router.Match("aboutwhat", params); handler != nil {
         t.FailNow()
     }
-    if view = router.Find("api"); view != nil {
+    if handler = router.Match("api/", params); handler != nil {
         t.FailNow()
     }
-    viewCalled = false
-    view = router.Find("api/doc")
-    if view == nil {
+    handlerCalled = false
+    handler = router.Match("api/doc", params)
+    if handler == nil {
         t.FailNow()
     }
-    if view.Handle(nil, nil); !viewCalled {
+    if handler.Handle(nil); !handlerCalled {
         t.FailNow()
     }
-    viewCalled = false
-    view = router.Find("api/user/123")
-    if view.Handle(nil, nil); !viewCalled {
-        t.Fail()
+    handlerCalled = false
+    handler = router.Match("api/user/123", params)
+    if handler.Handle(nil); !handlerCalled{
+        t.FailNow()
+    } else if uid, err := params.Int("uid"); err!=nil || uid != 123 {
+        t.FailNow()
     }
 }

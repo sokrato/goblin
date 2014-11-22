@@ -7,7 +7,7 @@ import (
 
 type Route struct {
     regx *regexp.Regexp
-    view Handler
+    handler Handler
     router *Router
 }
 
@@ -17,19 +17,19 @@ type Router struct {
 
 func NewRouter(config map[string]interface{}) (*Router, error) {
     routes := make([]Route, 0, 64)
-    for path, view := range config {
+    for path, handler := range config {
         regx, err := regexp.Compile(path)
         if err != nil {
             return nil, err
         }
         route := Route{
             regx: regx,
-            view: nil,
+            handler: nil,
             router: nil,
         }
-        switch v := view.(type) {
+        switch v := handler.(type) {
         case Handler:
-            route.view = v
+            route.handler = v
         case map[string]interface{}:
             route.router, err = NewRouter(v)
             if err != nil {
@@ -43,17 +43,25 @@ func NewRouter(config map[string]interface{}) (*Router, error) {
     return &Router{routes}, nil
 }
 
-func (r *Router)Find(path string) Handler {
+func (r *Router) Match(path string, params Params) Handler {
     for _, route := range r.routes {
-        locs := route.regx.FindStringIndex(path)
-        if locs == nil {
+        matches := route.regx.FindStringSubmatch(path)
+        if matches == nil {
             continue
         }
-        if route.view != nil {
-            return route.view
+        // fill params
+        if len(matches) > 1 {
+            names := route.regx.SubexpNames()
+            for i := 1; i < len(matches); i++ {
+                params[names[i]] = matches[i]
+            }
+        }
+        if route.handler != nil {
+            return route.handler
         }
         if route.router != nil {
-            return route.router.Find(path[locs[1]:])
+            index := len(matches[0])
+            return route.router.Match(path[index: ], params)
         }
     }
     return nil

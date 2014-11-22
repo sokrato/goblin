@@ -1,27 +1,59 @@
 package goblin
 
-import "net/http"
+import (
+    "net/http"
+    "errors"
+    "strconv"
+    "fmt"
+    "os"
+)
+
+var (
+    ErrParamsNotSet = errors.New("params not set")
+)
+
+type Context struct {
+    Res *ResponseWriter
+    Req *Request
+    App *App // the main app
+    Params Params // request params
+    Err interface{} // internal error, or nil
+    Extra Extra
+}
+
+type Extra map[string]interface{}
+
+type Params map[string]string
+
+func (p Params) Int(key string) (int, error) {
+    val, ok := p[key]
+    if !ok {
+        return 0, ErrParamsNotSet
+    }
+    return strconv.Atoi(val)
+}
 
 type Handler interface {
-    Handle(*ResponseWriter, *http.Request)
+    Handle(*Context)
 }
 
 type SimpleHandler struct {
-    fn func(*ResponseWriter, *http.Request)
+    fn func(*Context)
 }
 
-func (sv SimpleHandler) Handle(res *ResponseWriter, req *http.Request) {
-    sv.fn(res, req)
+func (sv SimpleHandler) Handle(ctx *Context) {
+    sv.fn(ctx)
 }
 
-func HandlerFromFunc(fn func(*ResponseWriter, *http.Request)) Handler {
+func HandlerFromFunc(fn func(*Context)) Handler {
     return SimpleHandler{fn}
 }
 
-func handle404(res *ResponseWriter, req *http.Request) {
-    res.NotFound()
+func handle404(ctx *Context) {
+    ctx.Res.NotFound()
 }
 
-func handle500(res *ResponseWriter, req *http.Request) {
-    res.Error(http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+func handle500(ctx *Context) {
+    ctx.Res.Error(http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+    fmt.Fprintln(os.Stderr, ctx.Err)
 }
