@@ -14,7 +14,7 @@ var (
         Name: "demo",
     }
 
-    settings g.Settings = g.Settings{
+    settings = g.Settings{
         g.CfgKeyRoutes: map[string]interface{}{
             `^echo/(?P<msg>.+)$`: demo.Echo,
             `^files/.*$`: g.FileServer("/home/xu/", "/files/"),
@@ -24,10 +24,10 @@ var (
             },
         },
         g.CfgKeyHandler404: demo.Handle404,
-        g.CfgKeyRequestMiddlewares: []func(*g.Context){
+        g.CfgKeyRequestMiddleware: []func(*g.Context){
             demo.RequestMDW,
         },
-        g.CfgKeyResponseMiddlewares: []func(*g.Context){
+        g.CfgKeyResponseMiddleware: []func(*g.Context){
             demo.ResponseMDW,
         },
     }

@@ -17,8 +17,8 @@ const (
     CfgKeyRoutes = "routes"
     CfgKeyHandler404 = "handler404"
     CfgKeyHandler500 = "handler500"
-    CfgKeyRequestMiddlewares = "requestMiddlewares"
-    CfgKeyResponseMiddlewares = "responseMiddlewares"
+    CfgKeyRequestMiddleware = "requestMiddlewares"
+    CfgKeyResponseMiddleware = "responseMiddlewares"
 )
 
 
@@ -66,19 +66,22 @@ func (s Settings) getHandlerSlice(key string) []func(*Context) {
     if !ok {
         return nil
     }
-    handlers, ok := val.([]func(*Context))
-    if !ok {
+    switch v := val.(type) {
+    case []func(*Context):
+        return v
+    case func(*Context):
+        return []func(*Context){v}
+    default:
         panic("goblin: invalid settings for " + key)
     }
-    return handlers
 }
 
 func (s Settings) RequestMiddlewares() []func(*Context) {
-    return s.getHandlerSlice(CfgKeyRequestMiddlewares)
+    return s.getHandlerSlice(CfgKeyRequestMiddleware)
 }
 
 func (s Settings) ResponseMiddlewares() []func(*Context) {
-    return s.getHandlerSlice(CfgKeyResponseMiddlewares)
+    return s.getHandlerSlice(CfgKeyResponseMiddleware)
 }
 
 func (s Settings) String(key string) (string, error) {

@@ -209,7 +209,7 @@ func main() {
             `^delay/(?P<num>\d{1,2})$`: hb.Delay,
             `^basic-auth/(?P<user>.+)/(?P<passwd>.+)$`: hb.BasicAuth,
         },
-        g.CfgKeyRequestMiddlewares: []func(*g.Context){
+        g.CfgKeyRequestMiddleware: []func(*g.Context){
             hb.addRequestId,
         },
     }
