@@ -65,7 +65,7 @@ func (d *Demo) Echo(ctx *g.Context) {
 }
 
 func (d *Demo) HandleEvent(evt string, args...interface{}) {
-    req := args[0].(*http.Request)
+    req := args[0].(*g.Context).Req
     log.Println("New Request: ", req.Method, req.URL)
 }
 

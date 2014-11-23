@@ -8,6 +8,7 @@ import (
     "strings"
     "time"
     "net/http"
+    "encoding/base64"
     g "github.com/dlutxx/goblin"
 )
 
@@ -19,6 +20,19 @@ const (
 
 type HttpBin struct {
     scheme string
+    idChan chan uint64
+}
+
+func (hb *HttpBin) addRequestId(ctx *g.Context) {
+    ctx.Req.Header.Set("X-Request-ID", fmt.Sprintf("%v", <-hb.idChan))
+}
+
+func (hb *HttpBin) generateId() {
+    var cnt uint64
+    for {
+        cnt ++
+        hb.idChan<- cnt
+    }
 }
 
 func (hb *HttpBin) Home(ctx *g.Context) {
@@ -160,10 +174,28 @@ func (hb *HttpBin) Delay(ctx *g.Context) {
     hb.Get(ctx)
 }
 
+func (hb *HttpBin) BasicAuth(ctx *g.Context) {
+    auth := ctx.Req.Header.Get("Authorization")
+    user := ctx.Params["user"]
+    passwd := ctx.Params["passwd"]
+    expected := base64.StdEncoding.EncodeToString([]byte(user + ":" + passwd))
+    if auth != "Basic " + expected {
+        ctx.Res.SetHeader("WWW-Authenticate", "Basic realm=\"fake realm\"")
+        ctx.Res.WriteHeader(http.StatusUnauthorized)
+    } else {
+        data := map[string]interface{}{
+            "authenticated": true,
+            "user": user,
+        }
+        hb.returnJSON(ctx.Res, data)
+    }
+}
+
 func main() {
     flag.Parse()
 
-    hb := &HttpBin{"http"}
+    hb := &HttpBin{"http", make(chan uint64, 32)}
+    go hb.generateId()
     cfg := g.Settings{
         g.CfgKeyRoutes: map[string]interface{}{
             `^$`: g.HF(hb.Home),
@@ -175,6 +207,10 @@ func main() {
             `^status/(?P<code>\d{3})$`: g.HF(hb.Status),
             `^redirect/(?P<num>\d+)$`: g.HF(hb.Redirect),
             `^delay/(?P<num>\d{1,2})$`: g.HF(hb.Delay),
+            `^basic-auth/(?P<user>.+)/(?P<passwd>.+)$`: g.HF(hb.BasicAuth),
+        },
+        g.CfgKeyRequestMiddlewares: []g.Handler{
+            g.HF(hb.addRequestId),
         },
     }
     app := g.NewApp(cfg)

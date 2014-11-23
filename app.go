@@ -77,20 +77,18 @@ func (app *App) applyResponseMiddlewares(ctx *Context) {
 func (app *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
     ctx := app.createContext(w, req)
     defer app.catchInternalError(ctx)
-    app.Emit(EvtRequestNew, req)
+    app.Emit(EvtRequestNew, ctx)
 
     view := app.Router.Match(req.URL.Path[1: ], ctx.Params)
     if view == nil { // 404
         app.Handle404(ctx)
+    } else {
+        app.applyRequestMiddlewares(ctx);
+        if !ctx.Res.HeaderSent() {
+            view.Handle(ctx)
+        }
+        app.applyResponseMiddlewares(ctx)
     }
-
-    app.applyRequestMiddlewares(ctx)
-
-    if view != nil && !ctx.Res.HeaderSent() {
-        view.Handle(ctx)
-    }
-
-    app.applyResponseMiddlewares(ctx)
     app.Emit(EvtRequestFinished, ctx)
 }
 
