@@ -96,3 +96,11 @@ func (res *Response) ServeFile(name string) {
 func (res *Response) SetCookie(cookie *http.Cookie) {
     http.SetCookie(res.w, cookie)
 }
+
+func (res *Response) SetHeader(key, val string) {
+    res.w.Header().Set(key, val)
+}
+
+func (res *Response) AddHeader(key, val string) {
+    res.w.Header().Add(key, val)
+}
