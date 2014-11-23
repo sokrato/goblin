@@ -16,19 +16,19 @@ var (
 
     settings g.Settings = g.Settings{
         g.CfgKeyRoutes: map[string]interface{}{
-            `^echo/(?P<msg>.+)$`: g.HF(demo.Echo),
+            `^echo/(?P<msg>.+)$`: demo.Echo,
             `^files/.*$`: g.FileServer("/home/xu/", "/files/"),
             `^book/(?P<bookid>\d+)/`: map[string]interface{} {
-                "^read$": g.HF(demo.ReadBook),
-                `^buy/(?P<price>\d+)$`: g.HF(demo.BuyBook),
+                "^read$": demo.ReadBook,
+                `^buy/(?P<price>\d+)$`: demo.BuyBook,
             },
         },
-        g.CfgKeyHandler404: g.HF(demo.Handle404),
-        g.CfgKeyRequestMiddlewares: []g.Handler{
-            g.HF(demo.RequestMDW),
+        g.CfgKeyHandler404: demo.Handle404,
+        g.CfgKeyRequestMiddlewares: []func(*g.Context){
+            demo.RequestMDW,
         },
-        g.CfgKeyResponseMiddlewares: []g.Handler{
-            g.HF(demo.ResponseMDW),
+        g.CfgKeyResponseMiddlewares: []func(*g.Context){
+            demo.ResponseMDW,
         },
     }
 )
@@ -78,6 +78,6 @@ func (d *Demo) Handle404(ctx *g.Context) {
 func main() {
     app := g.NewApp(settings)
     app.On("request.new", demo)
-    fmt.Println("try: curl 'http://localhost:8888/echo/hello%20Goblin!'")
+    fmt.Println("try: curl http://localhost:8888/echo/hello%20Goblin!")
     log.Fatalln(app.ListenAndServe(":8888"))
 }

@@ -16,9 +16,9 @@ func TestNewRouterWithNilOrInvalidHandler(t *testing.T) {
     }
     // route config with nested nil Handler
     router, err = NewRouter(map[string]interface{}{
-        "^non-nil$": HF(func(ctx *Context) {
+        "^non-nil$": func(ctx *Context) {
             flag = true
-        }),
+        },
         "^prefx/": map[string]interface{} {
             "^index$": nil,
         },
@@ -38,9 +38,9 @@ func TestNewRouterWithNilOrInvalidHandler(t *testing.T) {
 
 func TestRouterMatch(t *testing.T) {
     handlerCalled := false
-    handler := HF(func(ctx *Context) {
+    handler := func(ctx *Context) {
         handlerCalled = true
-    })
+    }
     router, err := NewRouter(map[string]interface{}{
         "^handler1$": handler,
         "^api/": map[string]interface{}{
@@ -56,7 +56,7 @@ func TestRouterMatch(t *testing.T) {
     if handler == nil {
         t.FailNow()
     }
-    if handler.Handle(nil); !handlerCalled {
+    if handler(nil); !handlerCalled {
         t.FailNow()
     }
     if handler = router.Match("aboutwhat", params); handler != nil {
@@ -70,12 +70,12 @@ func TestRouterMatch(t *testing.T) {
     if handler == nil {
         t.FailNow()
     }
-    if handler.Handle(nil); !handlerCalled {
+    if handler(nil); !handlerCalled {
         t.FailNow()
     }
     handlerCalled = false
     handler = router.Match("api/user/123", params)
-    if handler.Handle(nil); !handlerCalled{
+    if handler(nil); !handlerCalled{
         t.FailNow()
     } else if uid, err := params.Int("uid"); err!=nil || uid != 123 {
         t.FailNow()

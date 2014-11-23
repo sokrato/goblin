@@ -198,19 +198,19 @@ func main() {
     go hb.generateId()
     cfg := g.Settings{
         g.CfgKeyRoutes: map[string]interface{}{
-            `^$`: g.HF(hb.Home),
-            `^ip$`: g.HF(hb.IP),
-            `^headers$`: g.HF(hb.Headers),
-            `^user-agent$`: g.HF(hb.UserAgent),
-            `^get$`: g.HF(hb.Get),
-            `^post$`: g.HF(hb.Post),
-            `^status/(?P<code>\d{3})$`: g.HF(hb.Status),
-            `^redirect/(?P<num>\d+)$`: g.HF(hb.Redirect),
-            `^delay/(?P<num>\d{1,2})$`: g.HF(hb.Delay),
-            `^basic-auth/(?P<user>.+)/(?P<passwd>.+)$`: g.HF(hb.BasicAuth),
+            `^$`: hb.Home,
+            `^ip$`: hb.IP,
+            `^headers$`: hb.Headers,
+            `^user-agent$`: hb.UserAgent,
+            `^get$`: hb.Get,
+            `^post$`: hb.Post,
+            `^status/(?P<code>\d{3})$`: hb.Status,
+            `^redirect/(?P<num>\d+)$`: hb.Redirect,
+            `^delay/(?P<num>\d{1,2})$`: hb.Delay,
+            `^basic-auth/(?P<user>.+)/(?P<passwd>.+)$`: hb.BasicAuth,
         },
-        g.CfgKeyRequestMiddlewares: []g.Handler{
-            g.HF(hb.addRequestId),
+        g.CfgKeyRequestMiddlewares: []func(*g.Context){
+            hb.addRequestId,
         },
     }
     app := g.NewApp(cfg)

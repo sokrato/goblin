@@ -41,10 +41,10 @@ func (s Settings) Router() *Router {
     return router
 }
 
-func (s Settings) getHandler(key string) Handler {
+func (s Settings) getHandler(key string) func(*Context) {
     val, ok := s[key]
     if ok {
-        handler, ok := val.(Handler)
+        handler, ok := val.(func(*Context))
         if !ok {
             panic("goblin: invalid settings for " + key)
         }
@@ -53,31 +53,31 @@ func (s Settings) getHandler(key string) Handler {
     return nil
 }
 
-func (s Settings) Handler404() Handler {
+func (s Settings) Handler404() func(*Context) {
     return s.getHandler(CfgKeyHandler404)
 }
 
-func (s Settings) Handler500() Handler {
+func (s Settings) Handler500() func(*Context) {
     return s.getHandler(CfgKeyHandler500)
 }
 
-func (s Settings) getHandlerSlice(key string) []Handler {
+func (s Settings) getHandlerSlice(key string) []func(*Context) {
     val, ok := s[key]
     if !ok {
         return nil
     }
-    handlers, ok := val.([]Handler)
+    handlers, ok := val.([]func(*Context))
     if !ok {
         panic("goblin: invalid settings for " + key)
     }
     return handlers
 }
 
-func (s Settings) RequestMiddlewares() []Handler {
+func (s Settings) RequestMiddlewares() []func(*Context) {
     return s.getHandlerSlice(CfgKeyRequestMiddlewares)
 }
 
-func (s Settings) ResponseMiddlewares() []Handler {
+func (s Settings) ResponseMiddlewares() []func(*Context) {
     return s.getHandlerSlice(CfgKeyResponseMiddlewares)
 }
 

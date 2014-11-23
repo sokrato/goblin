@@ -14,11 +14,11 @@ const (
 type App struct {
     EventEmitter
     Router *Router
-    handler404 Handler
-    handler500 Handler
+    handler404 func(*Context)
+    handler500 func(*Context)
     Settings Settings
-    requestMiddlewares []Handler
-    responseMiddlewares []Handler
+    requestMiddlewares []func(*Context)
+    responseMiddlewares []func(*Context)
 }
 
 func (app *App) catchInternalError(ctx *Context) {
@@ -33,7 +33,7 @@ func (app *App) catchInternalError(ctx *Context) {
         ctx.err = err
         app.Emit(Evt500, ctx)
         if app.handler500 != nil {
-            app.handler500.Handle(ctx)
+            app.handler500(ctx)
         } else {
             handle500(ctx)
         }
@@ -54,7 +54,7 @@ func (app *App) createContext(w http.ResponseWriter, req *http.Request) *Context
 func (app *App) Handle404(ctx *Context) {
     app.Emit(Evt404, ctx)
     if app.handler404 != nil {
-        app.handler404.Handle(ctx)
+        app.handler404(ctx)
     } else {
         handle404(ctx)
     }
@@ -63,13 +63,13 @@ func (app *App) Handle404(ctx *Context) {
 
 func (app *App) applyRequestMiddlewares(ctx *Context) {
     for _, mw := range app.requestMiddlewares {
-        mw.Handle(ctx)
+        mw(ctx)
     }
 }
 
 func (app *App) applyResponseMiddlewares(ctx *Context) {
     for _, mv := range app.responseMiddlewares {
-        mv.Handle(ctx)
+        mv(ctx)
     }
 }
 
@@ -85,7 +85,7 @@ func (app *App) ServeHTTP(w http.ResponseWriter, req *http.Request) {
     } else {
         app.applyRequestMiddlewares(ctx);
         if !ctx.Res.HeaderSent() {
-            view.Handle(ctx)
+            view(ctx)
         }
         app.applyResponseMiddlewares(ctx)
     }

@@ -7,7 +7,7 @@ import (
 
 type Route struct {
     regx *regexp.Regexp
-    handler Handler
+    handler func(*Context)
     router *Router
 }
 
@@ -28,7 +28,7 @@ func NewRouter(config map[string]interface{}) (*Router, error) {
             router: nil,
         }
         switch v := handler.(type) {
-        case Handler:
+        case func(*Context):
             route.handler = v
         case map[string]interface{}:
             route.router, err = NewRouter(v)
@@ -43,7 +43,7 @@ func NewRouter(config map[string]interface{}) (*Router, error) {
     return &Router{routes}, nil
 }
 
-func (r *Router) Match(path string, params Params) Handler {
+func (r *Router) Match(path string, params Params) func(*Context) {
     for _, route := range r.routes {
         matches := route.regx.FindStringSubmatch(path)
         if matches == nil {

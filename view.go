@@ -39,22 +39,6 @@ func (p Params) Int(key string) (int, error) {
     return strconv.Atoi(val)
 }
 
-type Handler interface {
-    Handle(*Context)
-}
-
-type SimpleHandler struct {
-    fn func(*Context)
-}
-
-func (sv SimpleHandler) Handle(ctx *Context) {
-    sv.fn(ctx)
-}
-
-func HF(fn func(*Context)) Handler {
-    return SimpleHandler{fn}
-}
-
 func handle404(ctx *Context) {
     ctx.Res.NotFound()
 }
@@ -64,10 +48,10 @@ func handle500(ctx *Context) {
     fmt.Fprintln(os.Stderr, ctx.Req.URL, ctx.Err())
 }
 
-func FileServer(root, prefix string) Handler {
+func FileServer(root, prefix string) func(*Context) {
     fs := http.Dir(root)
     httpHandler := http.StripPrefix(prefix, http.FileServer(fs))
-    return HF(func(ctx *Context) {
+    return func(ctx *Context) {
         httpHandler.ServeHTTP(ctx.Res.w, ctx.Req.Request)
-    })
+    }
 }
