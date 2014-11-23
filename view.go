@@ -9,7 +9,7 @@ import (
 )
 
 var (
-    ErrParamNotSet = errors.New("param not set")
+    ErrKeyIsNotSet = errors.New("goblin: key is not set")
 )
 
 type Context struct {
@@ -34,7 +34,7 @@ type Params map[string]string
 func (p Params) Int(key string) (int, error) {
     val, ok := p[key]
     if !ok {
-        return 0, ErrParamNotSet
+        return 0, ErrKeyIsNotSet
     }
     return strconv.Atoi(val)
 }
