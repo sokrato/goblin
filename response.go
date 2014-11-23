@@ -8,7 +8,7 @@ import (
 )
 
 type Response struct {
-    status int
+    statusCode int
     headerSent bool
     w http.ResponseWriter
     req *http.Request
@@ -16,15 +16,15 @@ type Response struct {
 
 func NewResponse(w http.ResponseWriter, req *http.Request) *Response {
     return &Response{
-        status: http.StatusOK,
+        statusCode: http.StatusOK,
         w: w,
         req: req,
     }
 }
 
-// get status code of current response
-func (res *Response) Status() int {
-    return res.status
+// get statusCode code of current response
+func (res *Response) StatusCode() int {
+    return res.statusCode
 }
 
 func (res *Response) Header() http.Header {
@@ -59,28 +59,36 @@ func (res *Response) WriteJSON(v interface{}) (int, error) {
 
 // convinience wrappers for http.ResponseWriter
 
-func (res *Response) WriteHeader(status int) {
-    res.w.WriteHeader(status)
-    res.status = status
+func (res *Response) WriteHeader(statusCode int) {
+    res.w.WriteHeader(statusCode)
+    res.statusCode = statusCode
     res.markHeaderSent()
 }
 
 func (res *Response) Error(err string, code int) {
     http.Error(res.w, err, code)
-    res.status = code
+    res.statusCode = code
     res.markHeaderSent()
 }
 
 func (res *Response) NotFound() {
     http.NotFound(res.w, res.req)
-    res.status = http.StatusNotFound
+    res.statusCode = http.StatusNotFound
     res.markHeaderSent()
 }
 
 func (res *Response) Redirect(urlStr string, code int) {
     http.Redirect(res.w, res.req, urlStr, code)
-    res.status = code
+    res.statusCode = code
     res.markHeaderSent()
+}
+
+func (res *Response) RedirectPerm(urlStr string) {
+    res.Redirect(urlStr, http.StatusMovedPermanently)
+}
+
+func (res *Response) RedirectTemp(urlStr string) {
+    res.Redirect(urlStr, http.StatusFound)
 }
 
 func (res *Response) ServeContent(name string, modtime time.Time, content io.ReadSeeker) {

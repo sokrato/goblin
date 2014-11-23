@@ -49,7 +49,7 @@ func (d *Demo) ReadBook(ctx *g.Context) {
 func (d *Demo) ResponseMDW(ctx *g.Context) {
     startTime := ctx.Extra["startTime"].(time.Time)
     duration := time.Now().Sub(startTime)
-    log.Println(ctx.Res.Status(), ctx.Req.Method, ctx.Req.URL, duration)
+    log.Println(ctx.Res.StatusCode(), ctx.Req.Method, ctx.Req.URL, duration)
 }
 
 func (d *Demo) RequestMDW(ctx *g.Context) {

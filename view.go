@@ -17,8 +17,12 @@ type Context struct {
     Req *Request
     App *App // the main app
     Params Params // request params
-    Err interface{} // internal error, or nil
+    err interface{} // internal error, or nil
     Extra Extra
+}
+
+func (ctx *Context) Err() interface{} {
+    return ctx.err
 }
 
 // extra data bound to a Context instance
@@ -57,7 +61,7 @@ func handle404(ctx *Context) {
 
 func handle500(ctx *Context) {
     ctx.Res.Error(http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-    fmt.Fprintln(os.Stderr, ctx.Err)
+    fmt.Fprintln(os.Stderr, ctx.Req.URL, ctx.Err())
 }
 
 func FileServer(root, prefix string) Handler {

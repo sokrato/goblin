@@ -24,13 +24,13 @@ type App struct {
 func (app *App) catchInternalError(ctx *Context) {
     defer func() {
         if err := recover(); err != nil {
-            ctx.Err = err
+            ctx.err = err
             handle500(ctx)
         }
     }()
 
     if err := recover(); err != nil {
-        ctx.Err = err
+        ctx.err = err
         app.Emit(Evt500, ctx)
         if app.handler500 != nil {
             app.handler500.Handle(ctx)
