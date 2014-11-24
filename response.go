@@ -76,6 +76,10 @@ func (res *ResponseWriter) Write(bs []byte) (int, error) {
     return res.Body.Write(bs)
 }
 
+func (res *ResponseWriter) WriteString(str string) (int, error) {
+    return res.Write([]byte(str))
+}
+
 func (res *ResponseWriter) Flush() (int, error) {
     res.markSent()
     n, e := res.w.Write(res.Body.Bytes())

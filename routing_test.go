@@ -5,12 +5,6 @@ import (
     "net/http"
 )
 
-func makeTestView(flag *bool) View{
-    return func (res *ResponseWriter, req *http.Request) {
-        *flag = true
-    }
-}
-
 func TestNewRouterWithNilOrInvalidView(t *testing.T) {
     flag := false
     // route config with immediate nil view
@@ -22,7 +16,9 @@ func TestNewRouterWithNilOrInvalidView(t *testing.T) {
     }
     // route config with nested nil view
     router, err = NewRouter(map[string]interface{}{
-        "^non-nil$": makeTestView(&flag),
+        "^non-nil$": HandlerFromFunc(func(res *ResponseWriter, req *http.Request) {
+            flag = true
+        }),
         "^prefx/": map[string]interface{} {
             "^index$": nil,
         },
@@ -42,11 +38,14 @@ func TestNewRouterWithNilOrInvalidView(t *testing.T) {
 
 func TestRouterFind(t *testing.T) {
     viewCalled := false
+    handler := HandlerFromFunc(func(res *ResponseWriter, req *http.Request) {
+        viewCalled = true
+    })
     router, err := NewRouter(map[string]interface{}{
-        "^view1$": makeTestView(&viewCalled),
+        "^view1$": handler,
         "^api/": map[string]interface{}{
-            "^doc$": makeTestView(&viewCalled),
-            `^user/(\d+)$`: makeTestView(&viewCalled),
+            "^doc$": handler,
+            `^user/(\d+)$`: handler,
         },
     })
     if err != nil {
@@ -56,7 +55,7 @@ func TestRouterFind(t *testing.T) {
     if view == nil {
         t.FailNow()
     }
-    if view(nil, nil); !viewCalled {
+    if view.Handle(nil, nil); !viewCalled {
         t.FailNow()
     }
     if view = router.Find("aboutwhat"); view != nil {
@@ -70,12 +69,12 @@ func TestRouterFind(t *testing.T) {
     if view == nil {
         t.FailNow()
     }
-    if view(nil, nil); !viewCalled {
+    if view.Handle(nil, nil); !viewCalled {
         t.FailNow()
     }
     viewCalled = false
     view = router.Find("api/user/123")
-    if view(nil, nil); !viewCalled {
+    if view.Handle(nil, nil); !viewCalled {
         t.Fail()
     }
 }

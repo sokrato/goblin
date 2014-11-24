@@ -8,13 +8,19 @@ import (
 
 var settings goblin.Settings = goblin.Settings{
     "routes": map[string]interface{}{
-        `hi/`: goblin.View(hello),
+        `hi/`: goblin.HandlerFromFunc(hello),
     },
+    "handle404": goblin.HandlerFromFunc(handle404),
+}
+
+func handle404(res *goblin.ResponseWriter, req *http.Request) {
+    // res.WriteHeader(http.StatusNotFound)
+    n, e := res.WriteString(req.RequestURI + " dose not exist")
+    log.Println("handle404", n, e, 1/(n-n))
 }
 
 func hello(res *goblin.ResponseWriter, req *http.Request) {
-    log.Println("OK")
-    res.Write([]byte("hello"))
+    res.WriteString("hello")
 }
 
 func main() {
