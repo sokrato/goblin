@@ -18,9 +18,10 @@ type Cache interface {
 	Decr(string)
 }
 
-func Register(key string, factory func(utils.Dict) Cache) error {
-	if _, ok := cacheFactories[key]; ok {
-		return ErrFactoryAlreadyRegistered
+func Register(key string, factory func(utils.Dict) Cache) {
+	_, ok := cacheFactories[key]
+	if factory == nil || ok {
+		panic(ErrFactoryAlreadyRegistered)
 	}
 	cacheFactories[key] = factory
 	return nil

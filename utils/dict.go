@@ -58,3 +58,18 @@ func (d Dict) ParseInt(key string) (int, error) {
 		return 0, ErrBadValue
 	}
 }
+
+func (d Dict) ParseInt64(key string) (int64, error) {
+	val, ok := d[key]
+	if !ok {
+		return 0, ErrNoSuchKey
+	}
+	switch v := val.(type) {
+	case string:
+		return strconv.ParseInt(v, 10, 64)
+	case int64:
+		return v, nil
+	default:
+		return 0, ErrNoSuchKey
+	}
+}

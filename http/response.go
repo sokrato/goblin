@@ -22,6 +22,10 @@ func NewResponse(w http.ResponseWriter, req *Request) *Response {
 	}
 }
 
+func (res *Response) ResponseWriter() http.ResponseWriter {
+	return res.w
+}
+
 // get statusCode code of current response
 func (res *Response) StatusCode() int {
 	return res.statusCode
