@@ -75,5 +75,5 @@ func DjangoGetSignedCookie(cookieName, salt, sec, value string) (string, error) 
 	if DjangoSignCookie(cookieName, val, salt, sec) != sig {
 		return "", ErrBadSign
 	}
-	return strings.Split(val, ":")[0], nil
+	return val, nil
 }
