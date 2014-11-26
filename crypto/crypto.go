@@ -4,12 +4,14 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"hash"
 	"strings"
 )
 
 const (
-	DjangoSalt = "django.core.signing.Signersigner"
+	DjangoSalt            = "django.core.signing.Signersigner"
+	DjangoCookieSecPrefix = "django.http.cookies"
 )
 
 var (
@@ -19,6 +21,10 @@ var (
 		2: "==",
 		3: "===",
 	}
+)
+
+var (
+	ErrBadSign = errors.New("签名不正确")
 )
 
 func SaltedHMAC(key_salt, value, secret []byte) hash.Hash {
@@ -39,11 +45,35 @@ func b64_decode(s string) ([]byte, error) {
 	return base64.URLEncoding.DecodeString(s + pad)
 }
 
-func Base64HMAC(salt, value, secret []byte) string {
-	hs := SaltedHMAC(salt, value, secret)
+func Base64HMAC(salt, value, secret string) string {
+	hs := SaltedHMAC([]byte(salt), []byte(value), []byte(secret))
 	return b64_encode(hs.Sum(nil))
 }
 
-func DjangoSign(value, sec []byte) string {
-	return Base64HMAC([]byte(DjangoSalt), value, sec)
+func DjangoSign(value, sec string) string {
+	return Base64HMAC(DjangoSalt, value, sec)
+}
+
+func DjangoSignCookie(cookieName, cookieValue, salt, sec string) string {
+	salt = cookieName + salt + "signer"
+	sec = DjangoCookieSecPrefix + sec
+	return Base64HMAC(salt, cookieValue, sec)
+}
+
+func DjangoGetSignedCookie(cookieName, salt, sec, value string) (string, error) {
+	parts := strings.Split(value, ":")
+	var val, sig string
+	if len(parts) == 2 { // no timestamp
+		val, sig = parts[0], parts[1]
+	} else if len(parts) == 3 {
+		val = parts[0] + ":" + parts[1]
+		sig = parts[2]
+	} else {
+		return "", ErrBadSign
+	}
+
+	if DjangoSignCookie(cookieName, val, salt, sec) != sig {
+		return "", ErrBadSign
+	}
+	return strings.Split(val, ":")[0], nil
 }
